@@ -1,4 +1,4 @@
-def encodingfile(Path, NameFile):
+def encodingfile(Pathfile):
   from chardet.universaldetector import UniversalDetector
   '''
     Функция возвращает кодировку указанного файла в формате строки (строковый тип даннных).
@@ -7,17 +7,17 @@ def encodingfile(Path, NameFile):
     :return: Кодировка файла ('utf-8')
     '''
   enc = UniversalDetector()
-  with open(Path + f'\{NameFile}', 'rb') as flop:
+  with open(Pathfile, 'rb') as flop:
     for line in flop:
         enc.feed(line)
         if enc.done:
             break
     enc.close()
-    return enc.result
+    return enc.result['encoding']
 if __name__ == '__main__':
     path = r''
     namefile = ''
-    print(encodingfile(path, namefile)['encoding'])
+    print(encodingfile(path)['encoding'])
 
 
 
