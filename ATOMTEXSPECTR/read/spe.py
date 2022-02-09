@@ -33,6 +33,7 @@ def reading(filename, enc, debbuging=False):
     # ENER_FIT = list()
     RADIONUCLIDES = list()
     GPS = dict()
+    SIGMA = list()
     with open(filename, encoding = enc) as file:
 
         # Список с компонентами из строк файла
@@ -90,7 +91,7 @@ def reading(filename, enc, debbuging=False):
                 j = FIRSTCHANNEL
                 while j < LENCHANNEL:
                     item += 1
-                    SIGMA = numpy.append(ENERGY, float(LINES[item].split(" ")[1]))
+                    SIGMA = numpy.append(SIGMA, float(LINES[item].split(" ")[1]))
                     j += 1
 
             elif LINES[item] == '$TEMPERATURE:':
@@ -152,6 +153,8 @@ def reading(filename, enc, debbuging=False):
                 GPS['Speed'] = Speed
                 GPS['Direction'] = Direction
                 GPS['Valid'] = Valid
+            else:
+                warnings.warn(f'Строка {item + 1} неизвестная: ' + LINES[item], ReadingParserWarning)
             item += 1
 
     data["Counts"] = COUNTS
@@ -159,6 +162,7 @@ def reading(filename, enc, debbuging=False):
     data['GPS'] = GPS
     data['temp'] = TEMP
     data['gain'] = gain
+    data['energy'] = ENERGY
     # # data[]
 
     return data
@@ -168,4 +172,5 @@ if __name__ == '__main__':
     path = r'D:\ATOMTEXSPECTR\tests\spectrum\BDKG11M_sample.spe'
     encoding = UniDet.encodingfile(path)
     file = reading(path, encoding)
-
+    print(file.keys())
+    print(file['energy'])

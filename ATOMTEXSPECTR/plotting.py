@@ -224,8 +224,8 @@ class PlotSpectrum:  # PlotSpectrum(object) без родительского к
         self._ydata = ydata
         possible_labels = ["Counts", "Countrate [1/second]", "Countrate [1/second/keV]"]
         if self._ylabel in possible_labels or self._ylabel is None:
-        # Only reset _ylabel if it's an old result from parse_ymode or None
-        self._ylabel = ylabel
+            # Only reset _ylabel if it's an old result from parse_ymode or None
+            self._ylabel = ylabel
 
     @property
     def ax(self):
@@ -406,34 +406,168 @@ class PlotSpectrum:  # PlotSpectrum(object) без родительского к
         return self.ax
 
 
-@staticmethod
-def bin_edges_and_heights_to_steps(bin_edges, heights):
-    """
-        Алтернатива matplotlib's drawstyle='steps'
-    """
-    assert len(bin_edges) == len(heights) + 1
-    x = np.zeros(len(bin_edges) * 2)
-    y = np.zeros_like(
-        x)  # Функция zeros_like() возвращает новый массив из нулей с формой и типом данных указанного массива x.
-    x[::2] = bin_edges.astype(float)
-    x[1::2] = bin_edges.astype(float)
-    y[1:-1:2] = heights.astype(float)
-    y[2:-1:2] = heights.astype(float)
-    return x, y
+    @staticmethod
+    def bin_edges_and_heights_to_steps(bin_edges, heights):
+        """
+            Алтернатива matplotlib's drawstyle='steps'
+        """
+        assert len(bin_edges) == len(heights) + 1
+        x = np.zeros(len(bin_edges) * 2)
+        y = np.zeros_like(x)  # Функция zeros_like() возвращает новый массив из нулей с формой и типом данных указанного массива x.
+        x[::2] = bin_edges.astype(float)
+        x[1::2] = bin_edges.astype(float)
+        y[1:-1:2] = heights.astype(float)
+        y[2:-1:2] = heights.astype(float)
+        return x, y
 
 
-@staticmethod
-def dynamic_min(data_min, min_delta_y):
-    '''
-        Метод возвращает нижний предел осей (для оси ординат)
+    @staticmethod
+    def dynamic_min(data_min, min_delta_y):
+        '''
+        Метод возвращает нижний предел, граничное значение для оси ординат.
         на основе значения данных. Нижний предел - следующая степень 10-ая,
         или 3 * в степени 10, ниже минимума.
 
-    :param data_min: минимум входных данных (может быть как int(), так и float())
-    :param min_delta_y:
-    :return:
-    '''
-    if data_min > 0:
-        ceil10 = 10 ** (np.ceil(np.log10(data_min)))  # Функция ceil() округляет к большему целому числу.
-        # np.ceil([-1.5, 1.5])
-        # >> array([-1, 2])
+        :param data_min: минимум входных данных (может быть как int(), так и float())
+        :param min_delta_y: минимальный шаг по оси ординат
+        '''
+        if data_min > 0:
+            ceil10 = 10 ** (np.ceil(np.log10(data_min)))  # Функция ceil() округляет к большему целому числу.
+            # np.ceil([-1.5, 1.5])
+            # >> array([-1, 2])
+            sig_fig = np.floor(10 * data_min / ceil10) # функция floor() округляет к меньшему числу целому
+            # np.floor([-1.5, 1.5])
+            # >> array([-2, 1])
+            # np.floor([ - 1.6, 1.6])
+            # >> array([ - 2, 1])
+            if sig_fig <= 3:
+                ymin = ceil10 / 10
+            else:
+                ymin = ceil10 / 10 * 3
+        elif data_min == 0:
+            ymin = min_delta_y / 10.0
+        else:
+            # когда data_min < 0 - negative
+            floor10 = 10 ** (np.floor(np.log10( - data_min)))
+            sig_fig = np.floor( - data_min / floor10)
+            if sig_fig < 3:
+                ymin = - floor10 * 3
+            else:
+                ymin = -floor10 * 10
+        return ymin
+
+    @staticmethod
+    def dynamic_max(data_max, yscale):
+        '''
+            Метод позволяет получить верхний предел оси ординат на основе вхожных значений.
+            Верхний предел - степень 10 или 3 * степень выше макс. значения.
+
+            :param data_max:
+            :param yscale:
+            :return:
+        '''
+        floor10 = 100 ** (np.floor(np.log10(data_max)))
+        sig_fig = np.ceil(data_max / floor10)
+        if yscale == 'linear':
+            sig_fig = np.floor(data_max / floor10)
+            ymax = floor10 * (sig_fig + 1)
+        elif sig_fig < 3:
+            ymax = floor10 * 3
+        else:
+            ymax = floor10 * 10
+
+        return np.maximum(ymax, 0)
+
+    @property
+    def xlim(self):
+        '''
+            При отображении графиков (спектра граничные значения по каждой из осей по умолчанию определяются
+            автоматичеки, исходя из набора входных данных. Иногда требуется указывать
+            свои граничные значения.
+
+            Метод возвращает гоаничные значения для оси абсцисс.
+            :param data_max: Макимальное значение из данных (может быть как целочисленное, так и с плавающей точкой)
+        :return:
+        '''
+
+        if self._xlim is None or self._xlim == 'default':
+            return np.min(self._xedges), np.max(self._xedges)
+
+        return self._xlim
+
+    @xlim.setter
+    def xlim(self, limits):
+        '''
+        Возврат множества граничных значений для оси абсцисс.
+        :param limits:
+        :return:
+        '''
+        if (
+            limits is not None and limits != 'default' and (not hasattr(limits, "__len__") or len(limits) != 2)
+        ):
+            raise PlottingERROR(f'xlim должна быть размером 2: {limits}')
+        self._xlim = limits
+
+    @property
+    def ylim(self):
+        '''
+            Метод возвращет заданные граничные значения ylim,
+            в зависимости yscale, ydata.
+        :return:
+        '''
+        if self._ylim is None or self._ylim == 'default':
+            yscale = self.yscale
+            if yscale is None:
+                yscale = self.ax.get_yscale()
+            min_ind = np.argmin(np.abs(self._ydata[self._ydata != 0]))
+            delta_y = np.abs(self._ydata - self._ydata[min_ind])
+            min_delta_y = np.min(delta_y[delta_y > 0])
+
+            data_min = np.min(self._ydata)
+            if yscale == 'linear':
+                ymin = 0
+            elif yscale == 'log' and data_min < 0:
+                raise PlottingERROR('Нельзя отобразить отрицательные значения в масштабе Log; '
+                                    'используйте symlog scale')
+            elif yscale == 'symlog' and data_min >= 0:
+                ymin = 0
+            else:
+                ymin = self.dynamic_min(data_min, min_delta_y)
+
+            data_max = np.max(self._ydata)
+            ymax = self.dynamic_max((data_max, yscale))
+            return ymin, ymax
+        return self._ylim
+
+    @ylim.setter
+    def ylim(self, limits):
+        '''
+            Задает граничные значения для оси ординат (ylim).
+        :param limits:
+        :return:
+        '''
+        if (
+            limits is not None
+            and limits != 'default' and
+                (not hasattr(limits, '__len__') or len(limits) != 2)
+        ):
+            raise  PlottingERROR(f'ylim должны быть размером в 2: {limits}')
+        self._ylim = limits
+
+    @property
+    def linthresh(self):
+        '''
+        Возвращает linthresh, с условием наличия ydata.
+        :return:
+        '''
+        if self._linthresh is not None:
+            return self._linthresh
+        min_ind = np.argmin(self._ydata[self._ydata != 0])           # озвращает индекс минимального значения указанной оси
+        delta_y = np.abs(self._ydata - self._ydata[min_ind])
+        return np.min(delta_y[delta_y > 0])
+
+    @property
+    def linthreshy(self):
+        warnings.warn("linthreshy устарел, вместо этого используйте linthresh", DeprecationWarning)
+        return self.linthresh
+

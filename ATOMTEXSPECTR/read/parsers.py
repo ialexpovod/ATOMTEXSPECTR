@@ -6,15 +6,15 @@ import warnings
 исключения и завершения программы.
 """
 # warnings.filterwarnings("ignore")
-warnings.simplefilter("error", UserWarning)
+warnings.simplefilter("always", DeprecationWarning)
 class ReadingParserWarning(UserWarning):
     '''
-    Предупреждения, возникающие во время синтаксического анализа.
+    Предупреждения, возникающие во время парсинга.
     '''
     pass
 class ReadingParserError(Exception):
     '''
-    Сбой, возникший во время синтаксического анализа.
+    Сбой, возникший во время парсинга.
     '''
     pass
 
