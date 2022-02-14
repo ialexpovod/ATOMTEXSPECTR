@@ -1,3 +1,6 @@
+'''
+Чтение спектр-фала с разрешением .spe
+'''
 import datetime
 import os  # Модуль, позволяющий работать с операционной системой
 import warnings
@@ -7,20 +10,23 @@ import dateutil.parser
 from parsers import ReadingParserError, ReadingParserWarning
 
 
-def reading(filename, enc, debbuging=False):
+def reading(filename, debbuging = False):
     '''
-    Parse the ASCII SPE file and return a dictionary of data
+    Parse the ASCII .ats file and return a dictionary of data
     :param filename:Имя файла (строковый тип данных). The filename of the CNF file to read.
     :param debbuging: bool
     Следует ли выводить отладочную (debugging) информацию. По умолчанию False.
     :return: Dictionary of data in spectrum
     '''
 
-    print('Reading file:' + filename)  # Вывод названия файла
+    print('Читаемый спектр-файл:' + filename)  # Вывод названия файла
     namefile, extension = os.path.splitext(filename)
+    # Проверка кодировки файла
+    encoding = UniDet.encodingfile(path)
     # Проверка соответствия формату файла
     if extension != '.spe':
         raise ReadingParserError('Формат файла неверный' + extension)
+
     # Инициализируемый словарь для заполнения данными спектра по ходу парсинга файла
     data = dict()
     # Парсинг файла
@@ -34,7 +40,8 @@ def reading(filename, enc, debbuging=False):
     RADIONUCLIDES = list()
     GPS = dict()
     SIGMA = list()
-    with open(filename, encoding = enc) as file:
+
+    with open(filename, encoding = encoding) as file:
 
         # Список с компонентами из строк файла
         LINES = [LINE.strip() for LINE in file.readlines()]
@@ -153,8 +160,22 @@ def reading(filename, enc, debbuging=False):
                 GPS['Speed'] = Speed
                 GPS['Direction'] = Direction
                 GPS['Valid'] = Valid
-            else:
-                warnings.warn(f'Строка {item + 1} неизвестная: ' + LINES[item], ReadingParserWarning)
+
+            elif LINES[item].startswith("$"):
+                key = LINES[item][1:].rstrip(":")
+                item += 1
+                values = []
+                while item < len(LINES) and not LINES[item].startswith("$"):
+                    values.append(LINES[item])
+                    item += 1
+                if item < len(LINES):
+                    if LINES[item].startswith("$"):
+                        item -= 1
+                if len(values) == 1:
+                    values = values[0]
+                data[key] = values
+            # else:
+            #     warnings.warn(f'Строка {item + 1} неизвестная: ' + LINES[item], ReadingParserWarning)
             item += 1
 
     data["Counts"] = COUNTS
@@ -165,12 +186,14 @@ def reading(filename, enc, debbuging=False):
     data['energy'] = ENERGY
     # # data[]
 
-    return data
+    # Калибровка
 
+    return data
 
 if __name__ == '__main__':
     path = r'D:\ATOMTEXSPECTR\tests\spectrum\BDKG11M_sample.spe'
-    encoding = UniDet.encodingfile(path)
-    file = reading(path, encoding)
-    print(file.keys())
-    print(file['energy'])
+    # encoding = UniDet.encodingfile(path)
+    file = reading(path)
+    # print(file.keys())
+    # print(file['energy'])
+    print(file)
