@@ -7,10 +7,10 @@ import warnings
 import numpy
 from ATOMTEXSPECTR.encoding import UniDet
 import dateutil.parser
-from parsers import ReadingParserError, ReadingParserWarning
+from ATOMTEXSPECTR.read import parsers
 
 
-def reading(filename, debbuging = False):
+def reading(filename, debugging = False):
     '''
     Parse the ASCII .ats file and return a dictionary of data
     :param filename:Имя файла (строковый тип данных). The filename of the CNF file to read.
@@ -22,10 +22,10 @@ def reading(filename, debbuging = False):
     print('Читаемый спектр-файл:' + filename)  # Вывод названия файла
     namefile, extension = os.path.splitext(filename)
     # Проверка кодировки файла
-    encoding = UniDet.encodingfile(path)
+    encoding = UniDet.encodingfile(filename)
     # Проверка соответствия формату файла
     if extension != '.spe':
-        raise ReadingParserError('Формат файла неверный' + extension)
+        raise parsers.ReadingParserError('Формат файла неверный' + extension)
 
     # Инициализируемый словарь для заполнения данными спектра по ходу парсинга файла
     data = dict()
@@ -54,16 +54,16 @@ def reading(filename, debbuging = False):
             elif LINES[item] == "$DATE_MEA:":
                 item += 1
                 DATESTART = dateutil.parser.parse(LINES[item])
-                if debbuging:
+                if debugging:
                     print(DATESTART)
 
             elif LINES[item] == "$DATA:":
                 item += 1
                 FIRSTCHANNEL = float(LINES[item].split(" ")[0])
                 if FIRSTCHANNEL != 0:
-                    raise ReadingParserError(f"First channel is not 0: {FIRSTCHANNEL}")
+                    raise parsers.ReadingParserError(f"First channel is not 0: {FIRSTCHANNEL}")
                 NUMBERCHANNEL = float(LINES[item].split(" ")[1])
-                if debbuging:
+                if debugging:
                     print(FIRSTCHANNEL, NUMBERCHANNEL)
                 j = FIRSTCHANNEL
                 while j <= FIRSTCHANNEL + NUMBERCHANNEL:
@@ -110,7 +110,7 @@ def reading(filename, debbuging = False):
             elif LINES[item] == '$DOSE_RATE:':
                 DOSERATE = float(LINES[item + 1])
                 if DOSERATE == None or 0:
-                    ReadingParserWarning('Ошибка получения значения мощности дозы:' + str(DOSERATE))
+                    parsers.ReadingParserWarning('Ошибка получения значения мощности дозы:' + str(DOSERATE))
 
             elif LINES[item] == '$DU_NAME:':
                 DUNAME = LINES[item + 1]
@@ -122,19 +122,19 @@ def reading(filename, debbuging = False):
             elif LINES[item] == '$ACTIVITYRESULT:':
                 item += 1
                 ACTIVITY = LINES[item]
-                if debbuging and len(ACTIVITY) == 0:
+                if debugging and len(ACTIVITY) == 0:
                     print('Ошибка получения информации об активности, нет данных.')
                 # Значение эффективноси регистрации
 
             elif LINES[item] == '$EFFECTIVEACTIVITYRESULT:':
                 EFFECTIVEACTIVITYRESULT = LINES[item + 1]
-                if len(EFFECTIVEACTIVITYRESULT) == 0 and debbuging:
+                if len(EFFECTIVEACTIVITYRESULT) == 0 and debugging:
                     print('Ошибка получения информации об эффективности регистрации, нет данных.')
 
             # Код геометрии
             elif LINES[item] == '$GEOMETRY:':
                 GEOMETRY = LINES[item + 1]
-                if len(GEOMETRY) == 0 and debbuging:
+                if len(GEOMETRY) == 0 and debugging:
                     print('Ошибка получения информации о геометрии, нет данных.')
                     # Дата производства блока детектирования, спектрометра или любого друго устройства, позволяющего
                     # записывать спектр в формате .spe
@@ -160,7 +160,10 @@ def reading(filename, debbuging = False):
                 GPS['Speed'] = Speed
                 GPS['Direction'] = Direction
                 GPS['Valid'] = Valid
-
+            elif LINES[item] == "$MEAS_TIM:":
+                item += 1
+                livetime = int(LINES[item].split(" ")[0])
+                realtime = int(LINES[item].split(" ")[1])
             elif LINES[item].startswith("$"):
                 key = LINES[item][1:].rstrip(":")
                 item += 1
@@ -174,16 +177,19 @@ def reading(filename, debbuging = False):
                 if len(values) == 1:
                     values = values[0]
                 data[key] = values
+
             # else:
             #     warnings.warn(f'Строка {item + 1} неизвестная: ' + LINES[item], ReadingParserWarning)
             item += 1
 
-    data["Counts"] = COUNTS
-    data["Time"] = DATESTART
-    data['GPS'] = GPS
+    data["counts"] = COUNTS
+    data["time_collection"] = DATESTART
+    # data['GPS'] = GPS
     data['temp'] = TEMP
     data['gain'] = gain
     data['energy'] = ENERGY
+    data['livetime'] = livetime
+    data['realtime'] = realtime
     # # data[]
 
     # Калибровка
