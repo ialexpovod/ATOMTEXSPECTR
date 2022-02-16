@@ -162,8 +162,10 @@ def reading(filename, debugging = False):
                 GPS['Valid'] = Valid
             elif LINES[item] == "$MEAS_TIM:":
                 item += 1
-                livetime = int(LINES[item].split(" ")[0])
-                realtime = int(LINES[item].split(" ")[1])
+                # Время проведения измерения. Два значения
+                # Живое время
+                meatime = int(LINES[item].split(" ")[0])
+                sectime = int(LINES[item].split(" ")[1])
             elif LINES[item].startswith("$"):
                 key = LINES[item][1:].rstrip(":")
                 item += 1
@@ -188,8 +190,8 @@ def reading(filename, debugging = False):
     data['temp'] = TEMP
     data['gain'] = gain
     data['energy'] = ENERGY
-    data['livetime'] = livetime
-    data['realtime'] = realtime
+    data['measuretime'] = meatime
+    data['actualtime'] = sectime
     # # data[]
 
     # Калибровка

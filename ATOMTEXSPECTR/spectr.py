@@ -12,6 +12,7 @@ from uncertainties import UFloat, unumpy
 class SpectrERROR(Exception):
     '''
         Исключение, полученное из Spectr.
+
     '''
     pass
 
@@ -27,24 +28,44 @@ class UncalibratedError(SpectrERROR):
     pass
 
 
+# todo: 1. Расписать подробно в этом классе методы и атрибуты.
+# todo: 2. Сделать примеры для plotting и spectr
 class Spectr:
+    '''
+    Класс редставляет собой дифференциальное энергетическое распределение - СПЕКТР.
 
+    Пример создания объекта класса:
+        : spectr_1 = ATOMTEXSPECTR.Spectr()
 
-    def __init__(
+    '''
+    def __init__ (
             self,
             counts = None,
             cps = None,
             uncerts = None,
+            #
             pitch_edges_keV = None,
             pitch_edges_raw = None,
-            livetime = None,
-            realtime = None,
-            start_time = None,
-            stop_time = None,
-            **kwargs,
+            # Время проведения измерения, которое считает сама программа по набору спектральнных данных.
+            measuretime = None,
 
-    ):
-        if not (counts is None) ^ (cps is None):
+            # Время проведения измерения по реальным данным времени (по Гринвичу). Фиксируется значение
+            # из прибора, на котором производится набор спектральных данных, или компьютера с подключенным
+            # к нему блоком детектирования или прибором - спектрометром.
+            # Instance, 200 second
+            actualtime = None,
+            # Фиксированное значение даты и времени (instance, 02/07/2022 08:30:0 - MM/DD/YYYY HH:MM:SS)
+            point_start = None,
+            # Время прекращения измерения (actualtime + point_start = 02/07/2022 08:33:20)
+            point_stop = None,
+            **kwargs ):
+
+        if not (counts is None) ^ (cps is None):        # True ^ True >>> False -> if not False: >>> True,
+                                                        # if False: >>> условие не выполняется
+            # False ^ True >>> True, True ^ False >>> True, False ^ False >>> False
+            # То есть, если заданна сразу две переменной как "counts", так и
+            # "cps", то вы получите ошибку получения спектра. Если не заданны
+            # значения совсем -- ошибка получения спектра.
             raise SpectrERROR('Нужно указать counts или cps!')
 
         self._counts = None
@@ -52,8 +73,7 @@ class Spectr:
         self._bin_edges_kev = None
         self._bin_edges_raw = None
         self.energy_cal = None
-        self.livetime = None
-        self.realtime = None
+        self.measuretime = None
         self.attrs = {}
 
         if counts is not None:
@@ -80,45 +100,92 @@ class Spectr:
         self.pitch_edges_raw = pitch_edges_raw
         self.pitch_edges_keV = pitch_edges_keV
 
+        if measuretime is not None:
+            # Если в перевееной нулевое присвоение:
+            # То присвоить собственному значению переменной вещественное значение (с плавающей точкой)
+            self.measuretime = float(measuretime)
+
+        if actualtime is not None: # NULL
+            self.actualtime = float(actualtime)
+            if measuretime is not None:
+                if self.measuretime > self.actualtime:
+                    raise ValueError(f"Время измерения {measuretime} не может быть "
+                                     f"больше фактического времени {actualtime}.")
+        self.point_start = handle_datetime(point_start)
+        self.point_stop = handle_datetime(point_stop)
+
+        if (
+            self.actualtime is not None and
+            self.point_start is not None and
+            self.point_stop is not None
+        ):
+            raise SpectrERROR("Должно быть указано не больше двух аргументов из трех для"
+                              "actualtime, point_start, point_stop")
+
+        elif (self,point_start is not None and
+            self.point_stop is not None
+              ):
+            if self.point_start > self.point_stop:
+                raise ValueError(f"Время начала {point_start} набора спектра "
+                                 f"должно быть больше времени окончания {point_stop}!")
+            self.actualtime = (self.point_stop - self.point_start).total_seconds()
+        elif self.actualtime is not None and self.point_start is not None:
+            self.point_stop = self.point_start + datetime.timedelta(seconds = self.actualtime)
+        elif self.actualtime is not None and self.point_stop is not None:
+            self.point_start = self.point_stop - datetime.timedelta(seconds = self.actualtime)
+
+        # Любые другие
+        for k in kwargs:
+            self.attrs[key] = kwargs[key]
+        # todo fix __array_ufunc__
+        # These two lines make sure operators between a Spectrum
+        # and a numpy arrays are forbidden and cause a TypeError
+        self.__array_ufunc__ = None
+        self.__array_priority__ = 1
+
+
+
+
+
+
     @property
     def counts(self):
         if self._counts is not None:
             return self._counts
         else:
             try:
-                return self.cps * self.livetime
+                return self.cps * self.meatime
             except TypeError:
-                raise SpectrERROR(
-                    "Unknown livetime; cannot calculate counts from CPS"
+                raise SpectrERROR\
+                (
+                    "Неизвестное время измерения; невозможно получить скорость счета из количества отсчетов"
                 )
     @property
     def counts_vals(self):
-
-
+        # todo задать описание метода
         return unumpy.nominal_values(self.counts)
 
     @property
     def counts_uncs(self):
-
+        # todo задать описание метода
         return unumpy.std_devs(self.counts)
 
     @property
     def cps(self):
-
-
+        # todo задать описание метода
         if self._cps is not None:
             return self._cps
         else:
             try:
-                return self.counts / self.livetime
+                return self.counts / self.meatime
             except TypeError:
                 raise SpectrERROR(
-                    "Unknown livetime; cannot calculate CPS from counts"
+                    "Unknown meatime; cannot calculate CPS from counts"
                 )
 
     @property
     def cps_vals(self):
-
+        # todo задать описание метода
         return unumpy.nominal_values(self.cps)
 
     @property
@@ -248,6 +315,14 @@ class Spectr:
             self._bin_edges_raw = numpy.array(bin_edges_raw, dtype=float)
 
 
+    # Методы класса. Классовые методы, которые можно вызвать не создавая экземпляры.
+    # spectr_1 = Spectr.import_file(filename)
+    # class method
+    # Spectr.channels()
+    # Traceback (most recent call last):
+    #   File "<stdin>", line 1, in <module>
+    # TypeError: channels() missing 1 required positional argument: 'self'
+
     @classmethod
     def import_file(cls, filename, debugging = False):
         '''
@@ -271,6 +346,29 @@ class Spectr:
         # if cal is not None:
         #     spec.apply_calibration(cal)
         return spec
+
+    @classmethod
+    def import_from_list(
+            cls, data_list,
+            channels = None,
+            calibration = False,
+            xmin = None,
+            xmax = None,
+            ):
+        '''
+        Этот метод создает объект СПЕКТР из массива даныыых для формата данных список - list().
+
+        :param data_list:
+        :param channels:
+        :param calibration:
+        :param xmin:
+        :param xmax:
+        :return:
+        '''
+
+
+
+
 
     def plot(self, *args, **kwargs):
         '''

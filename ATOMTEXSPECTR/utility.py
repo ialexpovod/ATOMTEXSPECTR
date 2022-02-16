@@ -134,15 +134,15 @@ def handle_datetime(input_time, allow_none = False):
         :return:                datetime.datetime или None
     '''
 
-    if isinstance(input_time, datetime.datetime):
+    if isinstance(input_time, str):
+        return dateutil_parse(input_time)
+    elif isinstance(input_time, datetime.datetime):
         return input_time
     elif isinstance(input_time, datetime.date):
         warnings.warn(
             "datetime.date без времени; по умолчанию установлено значение 00:00 по дате"
         )
         return datetime.datetime(input_time.year, input_time.month, input_time.day)
-    elif isinstance(input_time, str):
-        return dateutil_parse(input_time)
     elif input_time is None and allow_none:
         return None
     else:
