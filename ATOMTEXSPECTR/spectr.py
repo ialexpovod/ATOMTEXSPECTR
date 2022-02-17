@@ -4,21 +4,23 @@ import warnings
 import datetime
 import numpy
 from ATOMTEXSPECTR import plotting
-from ATOMTEXSPECTR.utility import sqrt_pitchs, pitch_centers_from_edges, handle_datetime, handle_uncertain, ALL_UFloats, machineEpsilon
+from ATOMTEXSPECTR.utility import sqrt_bins, bin_centers_from_edges, handle_datetime, handle_uncertain, ALL_UFloats, machineEpsilon
 import ATOMTEXSPECTR.read
 from uncertainties import UFloat, unumpy
 
 
 class SpectrERROR(Exception):
     '''
-        Исключение, полученное из Spectr.
+    Исключение, полученное из Spectr.
 
+    СОздание класса в Pythin ачинается с инструкции class. Вот так будет выглядеть минимальный класс.
+    Который ничего не делаает - pass. При его объявлении возникает сообщение об исключении.
     '''
     pass
 
 class SpectrWarningg(UserWarning):
     '''
-        Предупреждение изображения Spectr..
+        Предупреждение отображения Spectr..
     '''
 
 class UncalibratedError(SpectrERROR):
@@ -28,8 +30,7 @@ class UncalibratedError(SpectrERROR):
     pass
 
 
-# todo: 1. Расписать подробно в этом классе методы и атрибуты.
-# todo: 2. Сделать примеры для plotting и spectr
+
 class Spectr:
     '''
     Класс редставляет собой дифференциальное энергетическое распределение - СПЕКТР.
@@ -38,6 +39,28 @@ class Spectr:
         : spectr_1 = ATOMTEXSPECTR.Spectr()
 
     '''
+
+    # Классы содержат методы и атрибуты. Атрибуты бывают  статическими и динамическими. Дальнейшее объявление атрибутов -
+    # динамические. Динамические объявляются в методе __init__.
+    # Пример статического атрибута может быть объявлен прямо в теле класаа:
+    # Cs_137 = '662 keV'
+    # >>> Spectr.Cs_137
+    # '662 keV'
+    # >>> Spectr.Cs_137 = '661 keV'
+    # "661 keV"
+
+
+
+    # Разница лишь в том, что для атрибута динамического
+    # необходимо создавать экземпляр класса:
+    # self.name_exampler = name_exampler
+    # Для доступа к этим арибутам необходимо задать экземпляр класса:
+    # >>> sp = Spectr('Ok')
+    # >>> sp.name_exampler
+    # 'Ok'
+
+
+
     def __init__ (
             self,
             counts = None,
@@ -135,7 +158,7 @@ class Spectr:
             self.point_start = self.point_stop - datetime.timedelta(seconds = self.actualtime)
 
         # Любые другие
-        for k in kwargs:
+        for key in kwargs:
             self.attrs[key] = kwargs[key]
         # todo fix __array_ufunc__
         # These two lines make sure operators between a Spectrum
@@ -143,10 +166,52 @@ class Spectr:
         self.__array_ufunc__ = None
         self.__array_priority__ = 1
 
+    def __str__(self):
+
+        # Специальные методы __str__ и __repr__ отвечают
+        # за строковое представления объекта. При этом используются они в разных местах.
+
+        # class IPAddress:
+        #    def __init__(self, ip):
+        #       self.ip = ip
+        #
+        #    def __str__(self):
+        #       return f"IPAddress: {self.ip}"
+
+        # >>> ip1 = IPAddress('10.1.1.1')
+        # >>> ip2 = IPAddress('10.2.2.2')
+        #
+        # >>> str(ip1)
+        # 'IPAddress: 10.1.1.1'
+        #
+        # >>> str(ip2)
+        # 'IPAddress: 10.2.2.2'
 
 
+        lines = ["ATOMTEXSPECTR.Spectr"]
+        ltups = []
+        for index in ['point_start', 'point_stop', 'actualtime',  'measuretime', 'is_calibrated']:
+            # getattr() Возвращает значение атрибута или значение по умолчанию, если первое не было указано
+            ltups.append((index, getattr(self, index)))
 
-
+        ltups.append(("num_bins", len(self.bin_indices)))
+        if self._counts is None:
+            ltups.append(("gross_counts", None))
+        else:
+            ltups.append(("gross_counts", self.counts.sum()))
+            try:
+                ltups.append(("gross_cps", self.cps.sum()))
+            except SpectrERROR:
+                ltups.append(("gross_cps", None))
+            if "filename" in self.attrs:
+                ltups.append(("filename", self.attrs["filename"]))
+            else:
+                ltups.append(("filename", None))
+            for lt in ltups:
+                lines.append("    {:15} {}".format(f"{lt[0]}:", lt[1]))
+            return "\n".join(lines)
+    # В нашем случае методы __repr__ и __str__ равны
+    __repr__ = __str__
 
     @property
     def counts(self):
@@ -221,7 +286,7 @@ class Spectr:
     @property
     def bin_centers_raw(self):
 
-        return pitch_centers_from_edges(self.bin_edges_raw)
+        return bin_centers_from_edges(self.bin_edges_raw)
 
     @property
     def bin_widths_raw(self):
@@ -234,9 +299,9 @@ class Spectr:
     def bin_centers_kev(self):
 
         if not self.is_calibrated:
-            raise UncalibratedError("Spectrum is not calibrated")
+            raise UncalibratedError("Spectr не клиброван")
         else:
-            return pitch_centers_from_edges(self.bin_edges_kev)
+            return bin_centers_from_edges(self.bin_edges_kev)
 
     @property
     def energies_kev(self):
@@ -248,9 +313,9 @@ class Spectr:
         )
 
         if not self.is_calibrated:
-            raise UncalibratedError("Spectrum is not calibrated")
+            raise UncalibratedError("Spectr не калиброван")
         else:
-            return pitch_centers_from_edges(self.bin_edges_kev)
+            return bin_centers_from_edges(self.bin_edges_kev)
 
     @property
     def bin_widths_kev(self):
@@ -277,19 +342,22 @@ class Spectr:
 
     @property
     def is_calibrated(self):
-
         return self.bin_edges_kev is not None
 
     @property
     def bin_edges_kev(self):
-
         return self._bin_edges_kev
 
     @bin_edges_kev.setter
     def bin_edges_kev(self, bin_edges_kev):
-
+        '''
+        Здесь осуществляется проверка.
+        :param bin_edges_kev:
+        :return:
+        '''
         if bin_edges_kev is None:
             self._bin_edges_kev = None
+
         elif len(bin_edges_kev) != len(self) + 1:
             raise SpectrERROR("Bad length of bin edges vector")
         elif numpy.any(numpy.diff(bin_edges_kev) <= 0):
@@ -315,7 +383,15 @@ class Spectr:
             self._bin_edges_raw = numpy.array(bin_edges_raw, dtype=float)
 
 
-    # Методы класса. Классовые методы, которые можно вызвать не создавая экземпляры.
+    # Методы класса. Метод - это функция, находящаяся внутри класса и выполняющая
+    # определенную работу. Бываю методы: статическими, классовыми и уровнем класса.
+    # CСтатический метод создается с декоратором @staticmethod
+    # Классовый метод - @classmethod, первый, по умолчанию, аргумент - cls.
+    # Обычный метод, или уровень класса создается без специального декоратора,
+    # первый его аргумент - self.
+    # Статический и классовый метод можно вызвать, не создавая экземпляр класса.
+
+    # Классовые методы, которые можно вызвать не создавая экземпляры.
     # spectr_1 = Spectr.import_file(filename)
     # class method
     # Spectr.channels()
@@ -342,19 +418,24 @@ class Spectr:
 
         # создание объекта и применение калибровок
         spec = cls(**data)
-        spec.attrs["infilename"] = filename
+        spec.attrs["filename"] = filename
         # if cal is not None:
         #     spec.apply_calibration(cal)
         return spec
 
+
+
+
+
+
     @classmethod
     def import_from_list(
             cls, data_list,
-            channels = None,
+            bins = None,
             calibration = False,
             xmin = None,
             xmax = None,
-            ):
+           **kwargs):
         '''
         Этот метод создает объект СПЕКТР из массива даныыых для формата данных список - list().
 
@@ -366,9 +447,227 @@ class Spectr:
         :return:
         '''
 
+        assert len(data_list) > 0
+
+        if xmin is None:
+            xmin = 0
+        if xmax is None:
+            xmax = numpy.ceil(max(data_list))
+        if bins is None:
+            bins = numpy.arange(xmin, xmax + 1, dtype=int)
+
+        assert xmin < xmax
+        if isinstance(bins, int):
+            assert bins > 0
+        else:
+            assert len(bins) > 1
+
+        bin_counts, bin_edges = numpy.histogram(data_list, bins = bins, range = (xmin, xmax) )
+
+        kwargs["counts"] = bin_counts
+        kwargs["bin_edges_kev" if calibration else "bin_edges_raw"] = bin_edges
+
+        return cls(**kwargs)
+
+    def copy(self):
+        from copy import deepcopy
+        '''
+            Делает deep copy этого объекта спектр.
+        '''
+        return deepcopy(self)
+
+    def __len__(self):
+        '''
+        Число каналов (bins) объекта Spectr.
+        :return: формат int для числа каналов
+        '''
+        try:
+            return len(self.counts)
+        except SpectrERROR:
+            return len(self.cps)
+
+    def __add__(self, other):
+        '''
+        Сложение спектров. Сумма времени измерений (если оно задано) и
+        результирующего спектра (по распределению Пуассона).
+        Оба спектра могу быть некалиброваными, или оба могут быть калиброванными
+        с одинаковой калибровкой по энергии.
+
+        :param other:       другой объект (экземпляр) Spectr для добавления отсчетов (count)
+        :return:            суммированный объект Spectr.
+        '''
+
+        self._add_sub_error_checking(other)
+        if (self._counts is None) ^ (other._counts is None):
+            raise SpectrERROR(
+                "Сложение спектров на отсчетах (counts), и спектров на скорости счета (cps) "
+                + "два варианта, использовать Spectr(counts = specA.counts + specB.counts) "
+                + "или Spectr(cps = specA.cps + specB.cps)."
+            )
+
+        if self._counts is not None and other._counts is not None:
+            kwargs = {"counts": self.counts + other.counts}
+            if self.measuretime and other.measuretime:
+                kwargs["measuretime"] = self.measuretime + other.measuretime
+            else:
+                warnings.warn(
+                    "Сложение отсчетов с ошибкой по времени измерения, "
+                    + "время измерений есть None.",
+                    SpectrWarningg,
+                )
+        else:
+            kwargs = {"cps": self.cps + other.cps}
+
+        if self.is_calibrated and other.is_calibrated:
+            spect_obj = Spectr(bin_edges_kev = self.bin_edges_kev, **kwargs)
+        else:
+            spect_obj = Spectr(bin_edges_raw = self.bin_edges_raw, **kwargs)
+        return spect_obj
+
+    def __sub__(self, other):
+        """
+        Вычитание спектров. Результирующий спектр не имеет значимого время измерения или
+        рассчитывает вектор и НЕ распределяется по Пуассону.
+        Оба спектра могут быть некалиброванными или оба могут быть откалиброваны
+        по той же энергии.
+
+        :param other: другой объект Spectr.
+        :return:      вычтенный спектр.
+        """
+
+        self._add_sub_error_checking(other)
+        try:
+            kwargs = {"cps": self.cps - other.cps}
+            if (self._cps is None) or (other._cps is None):
+                warnings.warn(
+                    "Вычитание спектров на отсчетах (counts) , "
+                    + "спектры были преобразовны в скорость счета (cps)",
+                    SpectrWarningg,
+                )
+        except SpectrERROR:
+            try:
+                kwargs = {"counts": self.counts_vals - other.counts_vals}
+                kwargs["uncs"] = [numpy.nan] * len(self)
+                warnings.warn(
+                    "Вычитание на отсчетах (counts), "
+                    + "время измерения пропущенно.",
+                    SpectrWarningg,
+                )
+            except SpectrERROR:
+                raise SpectrERROR(
+                    "Вычитание отсчетов и скорости счета спектров без "
+                    + "времени измерения невозможно."
+                )
+
+        if self.is_calibrated and other.is_calibrated:
+            spect_obj = Spectr(bin_edges_kev=self.bin_edges_kev, **kwargs)
+        else:
+            spect_obj = Spectr(bin_edges_raw=self.bin_edges_raw, **kwargs)
+        return spect_obj
 
 
+    def _add_sub_error_checking(self, other):
+        '''
+        Метод для обработки ошибок при сложении или вычитании спектров.
+        :param other:   другой спектр.
+        :return:
+        '''
 
+        if not isinstance(other, Spectr):
+            raise TypeError(
+                "Операция по сложению/вычитанию Spectr должно включать объект Spectr"
+            )
+        if len(self) != len(other):
+            raise SpectrERROR("Нельзя складывать/вычитать спектры с различным количеством каналов ")
+        if self.is_calibrated ^ other.is_calibrated:
+            raise SpectrERROR(
+                "Невозможно складывать/вычитать некалиброванные спектры с/от "
+                + "калиброванным спектром. Если оба имеют одинаковую калибровку, "
+                + 'используйте метод "calibrate_like"'
+            )
+        if self.is_calibrated and other.is_calibrated:
+            if not numpy.all(self.bin_edges_kev == other.bin_edges_kev):
+                raise NotImplementedError(
+                    "Сложение/вычитание для произвольных калиброванных спектров"
+                    + "не реализовано."
+                )
+        if not self.is_calibrated and not other.is_calibrated:
+            if not numpy.all(self.bin_edges_raw == other.bin_edges_raw):
+                raise NotImplementedError(
+                    "Сложение/вычитание для произвольных некалиброванных спектров"
+                    + "не реализовано."
+                )
+
+    def __mul__(self, other):
+        """
+         Возвращает новый объект Spectr с увеличенным количеством отсчетов (counts)
+         или скорости счета (cps).
+        :param other:   коэффициент умножения на объект Spectr.
+        :return:        новый объект Spectr.
+        """
+        return self._mul_div(other, div = False)
+
+    # This line adds the right multiplication
+    __rmul__ = __mul__
+
+    def __div__(self, other):
+        """Return a new Spectrum object with counts (or CPS) scaled down.
+        Args:
+          factor: factor to divide by. May be a ufloat.
+        Raises:
+          TypeError: if factor is not a scalar value
+          SpectrumError: if factor is 0 or infinite
+        Returns:
+          a new Spectrum object
+        """
+
+        return self._mul_div(other, div=True)
+
+    # This line adds true division
+    __truediv__ = __div__
+
+    def _mul_div(self, scaling_factor, div=False):
+        """Multiply or divide a spectrum by a scalar. Handle errors.
+        Raises:
+          TypeError: if factor is not a scalar value
+          ValueError: if factor is 0 or infinite
+        Returns:
+          a new Spectrum object
+        """
+
+        if not isinstance(scaling_factor, UFloat):
+            try:
+                scaling_factor = float(scaling_factor)
+            except (TypeError, ValueError):
+                raise TypeError("Spectrum must be multiplied/divided by a scalar")
+            if (
+                    scaling_factor == 0
+                    or numpy.isinf(scaling_factor)
+                    or numpy .isnan(scaling_factor)
+            ):
+                raise ValueError("Scaling factor must be nonzero and finite")
+        else:
+            if (
+                    scaling_factor.nominal_value == 0
+                    or numpy.isinf(scaling_factor.nominal_value)
+                    or numpy.isnan(scaling_factor.nominal_value)
+            ):
+                raise ValueError("Scaling factor must be nonzero and finite")
+        if div:
+            multiplier = 1 / scaling_factor
+        else:
+            multiplier = scaling_factor
+
+        if self._counts is not None:
+            data_arg = {"counts": self.counts * multiplier}
+        else:
+            data_arg = {"cps": self.cps * multiplier}
+
+        if self.is_calibrated:
+            spect_obj = Spectr(bin_edges_kev=self.bin_edges_kev, **data_arg)
+        else:
+            spect_obj = Spectr(bin_edges_raw=self.bin_edges_raw, **data_arg)
+        return spect_obj
 
     def plot(self, *args, **kwargs):
         '''
