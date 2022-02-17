@@ -67,8 +67,8 @@ class Spectr:
             cps = None,
             uncerts = None,
             #
-            pitch_edges_keV = None,
-            pitch_edges_raw = None,
+            bin_edges_keV = None,
+            bin_edges_raw = None,
             # Время проведения измерения, которое считает сама программа по набору спектральнных данных.
             measuretime = None,
 
@@ -118,10 +118,10 @@ class Spectr:
                 raise SpectrERROR("Спектр без скорости счета")
             self._cps = handle_uncertain(cps, uncerts, lambda x: numpy.nan) # numpy.nan -> nan (not None)
 
-        if pitch_edges_raw is None and not (counts is None and cps is None):
-            pitch_edges_raw = numpy.arange(len(self) + 1)
-        self.pitch_edges_raw = pitch_edges_raw
-        self.pitch_edges_keV = pitch_edges_keV
+        if bin_edges_raw is None and not (counts is None and cps is None):
+            bin_edges_raw = numpy.arange(len(self) + 1)
+        self.bin_edges_raw = bin_edges_raw
+        self.bin_edges_keV = bin_edges_keV
 
         if measuretime is not None:
             # Если в перевееной нулевое присвоение:
@@ -134,8 +134,8 @@ class Spectr:
                 if self.measuretime > self.actualtime:
                     raise ValueError(f"Время измерения {measuretime} не может быть "
                                      f"больше фактического времени {actualtime}.")
-        self.point_start = handle_datetime(point_start)
-        self.point_stop = handle_datetime(point_stop)
+        self.point_start = handle_datetime(point_start, allow_none = True)
+        self.point_stop = handle_datetime(point_stop , allow_none = True)
 
         if (
             self.actualtime is not None and
@@ -145,7 +145,7 @@ class Spectr:
             raise SpectrERROR("Должно быть указано не больше двух аргументов из трех для"
                               "actualtime, point_start, point_stop")
 
-        elif (self,point_start is not None and
+        elif (self.point_start is not None and
             self.point_stop is not None
               ):
             if self.point_start > self.point_stop:
@@ -198,9 +198,9 @@ class Spectr:
         if self._counts is None:
             ltups.append(("gross_counts", None))
         else:
-            ltups.append(("gross_counts", self.counts.sum()))
+            ltups.append(("Общее количество отсчетов", self.counts.sum()))
             try:
-                ltups.append(("gross_cps", self.cps.sum()))
+                ltups.append(("Суммареая скорость счета", self.cps.sum()))
             except SpectrERROR:
                 ltups.append(("gross_cps", None))
             if "filename" in self.attrs:
@@ -208,7 +208,7 @@ class Spectr:
             else:
                 ltups.append(("filename", None))
             for lt in ltups:
-                lines.append("    {:15} {}".format(f"{lt[0]}:", lt[1]))
+                lines.append("    {:40} {}".format(f"{lt[0]}:", lt[1]))
             return "\n".join(lines)
     # В нашем случае методы __repr__ и __str__ равны
     __repr__ = __str__
@@ -219,7 +219,7 @@ class Spectr:
             return self._counts
         else:
             try:
-                return self.cps * self.meatime
+                return self.cps * self.measuretime
             except TypeError:
                 raise SpectrERROR\
                 (
@@ -242,7 +242,7 @@ class Spectr:
             return self._cps
         else:
             try:
-                return self.counts / self.meatime
+                return self.counts / self.measuretime
             except TypeError:
                 raise SpectrERROR(
                     "Unknown meatime; cannot calculate CPS from counts"
@@ -272,6 +272,15 @@ class Spectr:
     def cpskev_uncs(self):
 
         return unumpy.std_devs(self.cpskev)
+
+    @property
+    def bin_indices(self):
+        """Bin indices.
+        Returns:
+          np.array of int's from 0 to (len(self.counts) - 1)
+        """
+
+        return numpy.arange(len(self), dtype = int)
 
     @property
     def channels(self):
@@ -410,9 +419,9 @@ class Spectr:
         '''
         _, extension = os.path.splitext(filename)
         if extension.lower() == ".spe":
-            data = ATOMTEXSPECTR.read.spe.reading(filename, debugging = debugging)
+            data = ATOMTEXSPECTR.read.spe.reading(filename, deb = debugging)
         elif extension.lower() == ".ats":
-            data = ATOMTEXSPECTR.read.ats.reading(filename, debugging = debugging)
+            data = ATOMTEXSPECTR.read.ats.reading(filename, deb = debugging)
         else:
             raise NotImplementedError(f"Разрешение файла {extension} не читабельно.")
 
@@ -669,6 +678,64 @@ class Spectr:
             spect_obj = Spectr(bin_edges_raw=self.bin_edges_raw, **data_arg)
         return spect_obj
 
+    def parse_xmode(self, xmode):
+        """Parse the x-axis mode to get the associated data and plot label.
+        Parameters
+        ----------
+        xmode : {'energy', 'channel'}
+            Mode (effectively units) of the x-axis
+        Returns
+        -------
+        xedges, xlabel
+            X-axis bin edges and a suitable label for plotting
+        Raises
+        ------
+        ValueError
+            If the xmode parameter is unsupported
+        """
+        if xmode == "energy":
+            xedges = self.bin_edges_kev
+            xlabel = "Energy [keV]"
+        elif xmode == "channel":
+            xedges = self.bin_edges_raw
+            xlabel = "Channel"
+        else:
+            raise ValueError(f"Неподдерживаемый xmode: {xmode:s}")
+        return xedges, xlabel
+
+    def parse_ymode(self, ymode):
+        """Parse the y-axis mode to get the associated data and plot label.
+        Parameters
+        ----------
+        ymode : {'counts', 'cps', 'cpskev'}
+            Mode (effectively units) of the y-axis
+        Returns
+        -------
+        ydata, yuncs, ylabel
+            Y-axis data, uncertainties, and a suitable label for plotting
+        Raises
+        ------
+        ValueError
+            If the ymode parameter is unsupported
+        """
+        if ymode == "counts":
+            ydata = self.counts_vals
+            yuncs = self.counts_uncs
+            ylabel = "Counts"
+        elif ymode == "cps":
+            ydata = self.cps_vals
+            yuncs = self.cps_uncs
+            ylabel = "cps [1/s]"
+        elif ymode == "cpskev":
+            ydata = self.cpskev_vals
+            yuncs = self.cpskev_uncs
+            ylabel = "cps [1/s/keV]"
+        else:
+            raise ValueError(f"Unsupported ymode: {ymode:s}")
+        return ydata, yuncs, ylabel
+
+
+
     def plot(self, *args, **kwargs):
         '''
         Графическое построение спектра с помощью Matplotlib командой plot.
@@ -721,3 +788,27 @@ class Spectr:
             raise SpectrERROR(f"Неизвестный формат задания погрешностей {emode}, "
                               f"используйте 'bars' или 'band' ")
         return ax
+
+    def fill_between(self, **kwargs):
+        """Plot a spectrum with matplotlib's fill_between command
+        Args:
+          xmode:  define what is plotted on x axis ('energy' or 'channel'),
+                  defaults to energy if available
+          ymode:  define what is plotted on y axis ('counts', 'cps', 'cpskev'),
+                  defaults to counts
+          xlim:   set x axes limits, if set to 'default' use special scales
+          ylim:   set y axes limits, if set to 'default' use special scales
+          ax:     matplotlib axes object, if not provided one is created
+          yscale: matplotlib scale: 'linear', 'log', 'logit', 'symlog'
+          title:  costum plot title
+          xlabel: costum xlabel value
+          ylabel: costum ylabel value
+          kwargs: arguments that are directly passed to matplotlib's
+                  fill_between command. In addition it is possible to pass
+                  linthresh if ylim='default' and ymode='symlog'.
+        Returns:
+          matplotlib axes object
+        """
+
+        plotter = plotting.PlotSpectrum(self, **kwargs)
+        return plotter.fill_between()

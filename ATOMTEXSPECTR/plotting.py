@@ -220,7 +220,7 @@ class PlotSpectrum:  # PlotSpectrum(object) без родительского к
             raise PlottingERROR(f"Unknown y data mode: {mode}")
 
         # Then, set the _ydata and _ylabel based on the _ymode
-        ydata, _, ylabel = self.spec.parse_ymode(self._ymode)
+        ydata, _, ylabel = self.spectrum.parse_ymode(self._ymode)
         self._ydata = ydata
         possible_labels = ["Counts", "Countrate [1/second]", "Countrate [1/second/keV]"]
         if self._ylabel in possible_labels or self._ylabel is None:
@@ -314,8 +314,8 @@ class PlotSpectrum:  # PlotSpectrum(object) без родительского к
             self.ax.set_yscale(self.yscale)
         if self.title is not None:
             self.ax.set_title(self.title)
-        elif "infilename" in self.spectrum.attrs:
-            self.ax.set_title(self.spectrum.attrs["infilename"])
+        elif "filename" in self.spectrum.attrs:
+            self.ax.set_title(self.spectrum.attrs["filename"])
         if self._xlim is not None:
             self.ax.set_xlim(self.xlim)
         if self._ylim is not None:
@@ -411,6 +411,8 @@ class PlotSpectrum:  # PlotSpectrum(object) без родительского к
         """
             Алтернатива matplotlib's drawstyle='steps'
         """
+
+        # print(bin_edges, heights)
         assert len(bin_edges) == len(heights) + 1
         x = np.zeros(len(bin_edges) * 2)
         y = np.zeros_like(x)  # Функция zeros_like() возвращает новый массив из нулей с формой и типом данных указанного массива x.
@@ -486,7 +488,6 @@ class PlotSpectrum:  # PlotSpectrum(object) без родительского к
             свои граничные значения.
 
             Метод возвращает гоаничные значения для оси абсцисс.
-            :param data_max: Макимальное значение из данных (может быть как целочисленное, так и с плавающей точкой)
         :return:
         '''
 
@@ -535,7 +536,7 @@ class PlotSpectrum:  # PlotSpectrum(object) без родительского к
                 ymin = self.dynamic_min(data_min, min_delta_y)
 
             data_max = np.max(self._ydata)
-            ymax = self.dynamic_max((data_max, yscale))
+            ymax = self.dynamic_max(data_max, yscale)
             return ymin, ymax
         return self._ylim
 

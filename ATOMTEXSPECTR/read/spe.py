@@ -1,20 +1,19 @@
 '''
 Чтение спектр-фала с разрешением .spe
 '''
-import datetime
+
 import os  # Модуль, позволяющий работать с операционной системой
-import warnings
 import numpy
 from ATOMTEXSPECTR.encoding import UniDet
 import dateutil.parser
 from ATOMTEXSPECTR.read import parsers
 
 
-def reading(filename, debugging = False):
+def reading(filename, deb = False):
     '''
     Parse the ASCII .ats file and return a dictionary of data
     :param filename:Имя файла (строковый тип данных). The filename of the CNF file to read.
-    :param debbuging: bool
+    :param deb: bool
     Следует ли выводить отладочную (debugging) информацию. По умолчанию False.
     :return: Dictionary of data in spectrum
     '''
@@ -54,7 +53,7 @@ def reading(filename, debugging = False):
             elif LINES[item] == "$DATE_MEA:":
                 item += 1
                 DATESTART = dateutil.parser.parse(LINES[item])
-                if debugging:
+                if deb:
                     print(DATESTART)
 
             elif LINES[item] == "$DATA:":
@@ -63,7 +62,7 @@ def reading(filename, debugging = False):
                 if FIRSTCHANNEL != 0:
                     raise parsers.ReadingParserError(f"First channel is not 0: {FIRSTCHANNEL}")
                 NUMBERCHANNEL = float(LINES[item].split(" ")[1])
-                if debugging:
+                if deb:
                     print(FIRSTCHANNEL, NUMBERCHANNEL)
                 j = FIRSTCHANNEL
                 while j <= FIRSTCHANNEL + NUMBERCHANNEL:
@@ -122,19 +121,19 @@ def reading(filename, debugging = False):
             elif LINES[item] == '$ACTIVITYRESULT:':
                 item += 1
                 ACTIVITY = LINES[item]
-                if debugging and len(ACTIVITY) == 0:
+                if deb and len(ACTIVITY) == 0:
                     print('Ошибка получения информации об активности, нет данных.')
                 # Значение эффективноси регистрации
 
             elif LINES[item] == '$EFFECTIVEACTIVITYRESULT:':
                 EFFECTIVEACTIVITYRESULT = LINES[item + 1]
-                if len(EFFECTIVEACTIVITYRESULT) == 0 and debugging:
+                if len(EFFECTIVEACTIVITYRESULT) == 0 and deb:
                     print('Ошибка получения информации об эффективности регистрации, нет данных.')
 
             # Код геометрии
             elif LINES[item] == '$GEOMETRY:':
                 GEOMETRY = LINES[item + 1]
-                if len(GEOMETRY) == 0 and debugging:
+                if len(GEOMETRY) == 0 and deb:
                     print('Ошибка получения информации о геометрии, нет данных.')
                     # Дата производства блока детектирования, спектрометра или любого друго устройства, позволяющего
                     # записывать спектр в формате .spe
@@ -185,7 +184,7 @@ def reading(filename, debugging = False):
             item += 1
 
     data["counts"] = COUNTS
-    data["time_collection"] = DATESTART
+    data["point_start"] = DATESTART
     # data['GPS'] = GPS
     data['temp'] = TEMP
     data['gain'] = gain
@@ -204,4 +203,5 @@ if __name__ == '__main__':
     file = reading(path)
     # print(file.keys())
     # print(file['energy'])
-    print(file)
+
+    print(type(file['point_start']))

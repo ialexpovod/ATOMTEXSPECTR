@@ -1,7 +1,6 @@
 '''
     Необходимые функции для основных модулей.
 '''
-
 import numpy
 import datetime
 from dateutil.parser import parse as dateutil_parse
@@ -233,3 +232,13 @@ def sqrt_bins(bin_edge_min, bin_edge_max, nbinss):
     return numpy.linspace(numpy.sqrt(bin_edge_min), numpy.sqrt(bin_edge_max), nbinss + 1) ** 2
 
 
+if __name__ == '__main__':
+    from read.spe import reading
+
+    path = r'D:\ATOMTEXSPECTR\tests\spectrum\BDKG11M_sample.spe'
+    file = reading(path)
+    v = file['point_start']
+    # handle_datetime()
+    print(isinstance(v, datetime.datetime))
+
+    print()

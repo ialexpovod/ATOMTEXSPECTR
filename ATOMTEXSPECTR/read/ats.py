@@ -5,13 +5,13 @@ import os
 import numpy
 from ATOMTEXSPECTR.encoding import UniDet
 import dateutil.parser
-from parsers import ReadingParserError, ReadingParserWarning
+from parsers import ReadingParserError
 
-def reading(filename, debugging = False):
+def reading(filename, deb = False):
     '''
     Parse the ASCII .ats file and return a dictionary of data
     :param filename:        Имя файла (строковый тип данных). The filename of the CNF file to read.
-    :param debbuging:       bool
+    :param deb:             bool
                             Следует ли выводить отладочную (debugging) информацию. По умолчанию False.
     :return:                Dictionary of data in spectrum
     '''
@@ -47,7 +47,7 @@ def reading(filename, debugging = False):
         for item in range(len(LINES)):
             if LINES[item][0] == "TIME":
                 Time = int(LINES[item][2])
-                if debugging:
+                if deb:
                     print('Время набора спектра = ', Time)
             elif LINES[item][0] == 'ACTIVITY':
                 Activity = float(LINES[item][2])
@@ -278,17 +278,17 @@ def reading(filename, debugging = False):
         GPS['Valid'] = GPS_VLD
 
         # ----------------------------------- Data (dict) ----------------------------------- #
-        data["Counts"] = counts
+        data["counts"] = counts
         data['Date manufacture'] = DATE_MANUFACT
         data['GPS'] = GPS
         data['Energy'] = energy
         data['Sigma'] = resultion
-        data['Time of collection'] = Time
-        data['Realtime'] = realtime
+        data['measuretime'] = Time
+        data['actualtime'] = realtime
         data['Activity'] = Activity
         data['Remark'] = remark
         data['Weight'] = weight
-        data['Date Measurement'] = Date
+        data['point_start'] = Date
         data['Dose rate'] = Dose
         data['Dose rate error'] = DR_ERR
         data['Gain'] = gain
@@ -307,7 +307,7 @@ def reading(filename, debugging = False):
         data['ENCRYPTED'] = ENCRYPTED
         data['Type detector unit'] = DU
         data['Geometry'] = geometry
-        data['' ] = firmware
+        data['firmware'] = firmware
 
     return data
 
