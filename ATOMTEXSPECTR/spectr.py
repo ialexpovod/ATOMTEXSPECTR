@@ -194,7 +194,7 @@ class Spectr:
             # getattr() Возвращает значение атрибута или значение по умолчанию, если первое не было указано
             ltups.append((index, getattr(self, index)))
 
-        ltups.append(("num_bins", len(self.bin_indices)))
+        ltups.append(("Каналов", len(self.bin_indices)))
         if self._counts is None:
             ltups.append(("gross_counts", None))
         else:
