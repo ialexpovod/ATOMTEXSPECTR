@@ -1,4 +1,12 @@
-# Парсинг файл-спектра
+"""
+----------------
+Spectr - fundamental class for file-spectrum parsing [0].
+----------------
+[0]     This project originates from the matplotlib and NumPy libraries.
+        The attributes that are assigned here are similar to the attributes
+        from these libraries, this will make the code less complex and
+        understandable in terms of describing methods.
+"""
 import os
 import warnings
 import datetime
@@ -7,15 +15,15 @@ from ATOMTEXSPECTR import plotting
 from ATOMTEXSPECTR.utility import sqrt_bins, bin_centers_from_edges, handle_datetime, handle_uncertain, ALL_UFloats, machineEpsilon
 import ATOMTEXSPECTR
 from uncertainties import UFloat, unumpy
-
+Hello
 
 class SpectrERROR(Exception):
-    '''
+    """
     Исключение, полученное из Spectr.
 
     СОздание класса в Pythin ачинается с инструкции class. Вот так будет выглядеть минимальный класс.
     Который ничего не делаает - pass. При его объявлении возникает сообщение об исключении.
-    '''
+    """
     pass
 
 class SpectrWarningg(UserWarning):
