@@ -3,7 +3,7 @@ from ATOMTEXSPECTR import spectr as sp
 from uncertainties import ufloat, unumpy
 import matplotlib.pyplot
 from ATOMTEXSPECTR.read import spe
-spectr_1 = sp.Spectr.import_file(r'D:\ATOMTEXSPECTR\tests\spectrum\228th.spe')
+spectr_1 = sp.Spectr.import_file(r'/Users/ialexpovod/PycharmProjects/ATOMTEXSPECTR/tests/spectrum/BDKG11M_sample.spe')
 y = numpy.random.normal(10, 1, 10)
 
 # arr = unumpy.uarray([1, 2], [0.01, 0.002])
