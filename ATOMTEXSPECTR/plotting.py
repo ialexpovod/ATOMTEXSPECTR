@@ -4,7 +4,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from uncertainties import unumpy
-import warnings
+import warn
 
 
 class PlottingERROR(Exception):

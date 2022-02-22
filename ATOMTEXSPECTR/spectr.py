@@ -8,14 +8,14 @@ Spectr - fundamental class for file-spectrum parsing [0].
         understandable in terms of describing methods.
 """
 import os
-import warnings
+import warn
 import datetime
 import numpy
 from ATOMTEXSPECTR import plotting
-from ATOMTEXSPECTR.utility import sqrt_bins, bin_centers_from_edges, handle_datetime, handle_uncertain, ALL_UFloats, machineEpsilon
+from ATOMTEXSPECTR.tools import sqrt_bins, bin_centers_from_edges, handle_datetime, handle_uncertain, ALL_UFloats, machineEpsilon
 import ATOMTEXSPECTR
 from uncertainties import UFloat, unumpy
-"Hello, Alex Povod"
+
 class SpectrERROR(Exception):
     """
     Исключение, полученное из Spectr.
