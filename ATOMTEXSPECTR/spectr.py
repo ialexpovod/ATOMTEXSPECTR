@@ -48,9 +48,6 @@ class Spectr:
     # '662 keV'
     # >>> Spectr.Cs_137 = '661 keV'
     # "661 keV"
-
-
-
     # Разница лишь в том, что для атрибута динамического
     # необходимо создавать экземпляр класса:
     # self.name_exampler = name_exampler
@@ -58,8 +55,6 @@ class Spectr:
     # >>> sp = Spectr('Ok')
     # >>> sp.name_exampler
     # 'Ok'
-
-
 
     def __init__ (
             self,
@@ -157,10 +152,13 @@ class Spectr:
         elif self.actualtime is not None and self.point_stop is not None:
             self.point_start = self.point_stop - datetime.timedelta(seconds = self.actualtime)
 
-        # Любые другие
+        # Добавить все другие элементы в словарь attrs().
+        # 'sigma': array([ 0.      ,  0.117188,  0.238281, ..., 17.175781, 17.1875  ,
+        #        17.199219]), 'filename': 'D:\\ATOMTEXSPECTR\\tests\\spectrum\\228th.spe'}
+        # Если не будет, то { 'filename': 'D:\\ATOMTEXSPECTR\\tests\\spectrum\\228th.spe'}
         for key in kwargs:
             self.attrs[key] = kwargs[key]
-        # todo fix __array_ufunc__
+        # todo
         # These two lines make sure operators between a Spectrum
         # and a numpy arrays are forbidden and cause a TypeError
         self.__array_ufunc__ = None
@@ -186,14 +184,12 @@ class Spectr:
         #
         # >>> str(ip2)
         # 'IPAddress: 10.2.2.2'
-
-
+        
         lines = ["ATOMTEXSPECTR.Spectr"]
         ltups = []
         for index in ['point_start', 'point_stop', 'actualtime',  'measuretime', 'is_calibrated']:
             # getattr() Возвращает значение атрибута или значение по умолчанию, если первое не было указано
             ltups.append((index, getattr(self, index)))
-
         ltups.append(("Каналов", len(self.bin_indices)))
         if self._counts is None:
             ltups.append(("gross_counts", None))
