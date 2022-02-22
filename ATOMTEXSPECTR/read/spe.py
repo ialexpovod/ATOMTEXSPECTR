@@ -170,6 +170,6 @@ def reading(
 
 
 if __name__ == '__main__':
-    path = r'D:\ATOMTEXSPECTR\tests\spectrum\BDKG11M_sample.spe'
+    path = r'/Users/ialexpovod/PycharmProjects/ATOMTEXSPECTR/tests/spectrum/BDKG11M_sample.spe'
     file = reading(path)
     print(file)
