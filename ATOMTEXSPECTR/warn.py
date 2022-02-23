@@ -24,11 +24,6 @@ class uncalibrated_error(spectrum_error):
     pass
 
 
-class plot_error(Exception):
-    '''
-    Exception raised by plot.py
-    '''
-    pass
 
 class plot_spectrum:
     """
@@ -41,4 +36,10 @@ class inaccuracy_error(Exception):
     Raised when  inaccuracy (in this case, uncertainties)
     are badly specified in an input
     """
+    pass
+
+class plot_error(Exception):
+    '''
+    Exception raised by plot.py
+    '''
     pass

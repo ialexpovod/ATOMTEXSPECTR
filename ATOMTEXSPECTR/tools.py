@@ -6,7 +6,8 @@ import datetime
 import warnings
 from dateutil.parser import parse as dateutil_parse
 from uncertainties import UFloat, unumpy
-from warn import inaccuracy_error
+from ATOMTEXSPECTR.warn import inaccuracy_error
+
 # --------------- Initialization --------------- #
 vectors = (list, tuple, numpy.ndarray)
 # --------------- Inaccuracy funcs --------------- #
@@ -41,7 +42,7 @@ def parsing_inaccuracy(
     elif x_in is not None:
         return unumpy.uarray(x, x_in)
     else:
-        return unumpy.uarray(x, func(x_in))
+        return unumpy.uarray(x, func(x))
 
 # --------------- Inaccuracy funcs --------------- #
 def machineEpsilon(func = float):

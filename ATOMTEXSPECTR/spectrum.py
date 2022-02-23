@@ -7,11 +7,13 @@ import os
 import warnings
 import datetime
 import numpy
-from ATOMTEXSPECTR import plotting
-from ATOMTEXSPECTR.tools import sqrt_bins, bin_centers_from_edges, parsing_datetime, parsing_inaccuracy, ALL_UFloats, machineEpsilon
+from ATOMTEXSPECTR import plot
+from ATOMTEXSPECTR.tools import bin_centers_from_edges, parsing_datetime, parsing_inaccuracy, machineEpsilon
 import ATOMTEXSPECTR
 from uncertainties import UFloat, unumpy
-from warn import spectrum_error, spectrum_warning, uncalibrated_error
+from ATOMTEXSPECTR.warn import spectrum_error, spectrum_warning, uncalibrated_error
+
+
 
 class spectrum:
     """
@@ -36,19 +38,26 @@ class spectrum:
         if not (counts is None) ^ (cps is None): # (not False) == True
             raise spectrum_error("It is necessary to specify "
                                  "what value is in the data: counts or cps!")
+        self._counts = None
+        self._cps = None
+        self._channel_bin_edges = None
+        self._energy_bin_edges = None
+
         if counts is not None:
             if len(counts) == 0:
                 raise spectrum_error("Empty spectrum counts.")
             if inaccuracy is None and numpy.any(numpy.asarray(counts) < 0):
                 raise spectrum_error("The counts should not contain negative values!")
-            self._counts = parsing_inaccuracy(counts, inaccuracy,  lambda x: numpy.maximum(numpy.sqrt(x), 1))
+            self._counts = parsing_inaccuracy(counts, inaccuracy,
+                                              lambda x: numpy.maximum(numpy.sqrt(x), 1)
+                                              )
         else:
             if len(cps) == 0:
                 raise spectrum_error("Spectrum without cps.")
             self._cps = parsing_inaccuracy(cps, inaccuracy, lambda x: numpy.nan)
 
-        self._counts = None
-        self._cps = None
+
+
 
         # conditional statements for parsing the abscissa axis
         # Package based on bin_edges from numpy.histogram()
@@ -60,14 +69,15 @@ class spectrum:
             channel_bin_edges = numpy.arange(len(self) + 1)
 
         self.channel_bin_edges = channel_bin_edges
-        self._channel_bin_edges = None
+
 
         self.energy_bin_edges = energy_bin_edges
-        self._energy_bin_edges = None
+
 
         # conditional statements for parsing time
         self.measuretime = None
         self.actualtime = None
+
         if measuretime is not None:
             self.measuretime = float(measuretime)
         if actualtime is not None: # NULL
@@ -88,11 +98,11 @@ class spectrum:
             if self.sp_start_count > self.sp_stop_count:
                 raise ValueError(f"Time of start {sp_start_count} набора спектра "
                                  f"there should be less end time {sp_stop_count}!")
-            self.actualtime = (self.point_stop - self.point_start).total_seconds()
-        elif self.actualtime is not None and self.point_start is not None:
-            self.point_stop = self.point_start + datetime.timedelta(seconds = self.actualtime)
-        elif self.actualtime is not None and self.point_stop is not None:
-            self.point_start = self.point_stop - datetime.timedelta(seconds = self.actualtime)
+            self.actualtime = (self.sp_stop_count - self.sp_start_count).total_seconds()
+        elif self.actualtime is not None and self.sp_start_count is not None:
+            self.sp_stop_count = self.sp_start_count + datetime.timedelta(seconds = self.actualtime)
+        elif self.actualtime is not None and self.sp_stop_count is not None:
+            self.sp_start_count = self.sp_stop_count - datetime.timedelta(seconds = self.actualtime)
         # Filling out a new vocabulary in the class spectrum.
         for key in kwargs:
             self.data[key] = kwargs[key]
@@ -117,9 +127,9 @@ class spectrum:
         """
         Output description file-spectrum.
         """
-        lines = ["ATOMTEXSPECTR.Spectr"]
+        lines = ["ATOMTEXSPECTR"]
         ltups = []
-        for index in ['point_start', 'point_stop', 'actualtime', 'measuretime', 'is_calibrated_for_energy']:
+        for index in ['sp_start_count', 'sp_stop_count', 'actualtime', 'measuretime', 'is_calibrated_for_energy']:
             ltups.append((index, getattr(self, index)))
         ltups.append(("Numbers of channels", len(self.bin_item)))
         if self._counts is None:
@@ -281,10 +291,10 @@ class spectrum:
         elif numpy.any(numpy.diff(energy_bin_edges) <= 0):
             raise ValueError("Bin edge energies must be strictly increasing")
         else:
-            self._bin_edges_kev = numpy.array(energy_bin_edges, dtype=float)
+            self._energy_bin_edges = numpy.array(energy_bin_edges, dtype = float)
 
     @property
-    def bin_widths(self):
+    def bin_widths_kev(self):
         """
         The width of each bin, in keV.
         """
@@ -313,7 +323,7 @@ class spectrum:
         Set the channel bin edges of a spectrum
         """
         if channel_bin_edges is None:
-            self.channel_bin_edges = None
+            self._channel_bin_edges = None
         elif len(channel_bin_edges) != len(self) + 1:
             raise spectrum_error("Bad length of bin edges vector")
         elif numpy.any(numpy.diff(channel_bin_edges) <= 0):
@@ -368,21 +378,21 @@ class spectrum:
         from copy import deepcopy
         return deepcopy(self) #  a spectrum object identical to this one
 
-    def parsing_abscissa(self, abscissa):
+    def parsing_abscissa(self, x):
         """
         Parse the axis abscissa mode to get the associated data and plot label.
         """
-        if abscissa == "energy":
+        if x == "energy":
             xedges = self.energy_bin_edges
             xlabel = "Energy [keV]"
-        elif abscissa == "channel":
+        elif x == "channel":
             xedges = self.channel_bin_edges
             xlabel = "Channel"
         else:
-            raise ValueError(f"Unsupported xmode: {abscissa:s}")
+            raise ValueError(f"Unsupported xmode: {x:s}")
         return xedges, xlabel
 
-    def parse_ordinate(self, ordinate):
+    def parsing_ordinate(self, ordinate):
         """
         Parse the axis ordinate mode to get the associated data and plot label.
         """
@@ -399,7 +409,7 @@ class spectrum:
             yuncs = self.inaccuracy_cpskev
             ylabel = "cps [1/s/keV]"
         else:
-            raise ValueError(f"Unsupported ymode: {ymode:s}")
+            raise ValueError(f"Unsupported ymode: {ordinate:s}")
         return ydata, yuncs, ylabel
 
     def plot(self, *args, **kwargs):
@@ -409,7 +419,7 @@ class spectrum:
         emode = kwargs.pop("emode", "none")
 
         alpha = kwargs.get("alpha", 1)
-        plotaxes = plotting.PlotSpectrum(self, *args, **kwargs)
+        plotaxes = plot.plot_spectrum(self, *args, **kwargs)
         ax = plotaxes.plot()
         color = ax.get_lines()[-1].get_color()
         if emode == 'band':
@@ -426,7 +436,7 @@ class spectrum:
         Plot a spectrum with matplotlib's fill_between command
 
         """
-        plotter = plotting.PlotSpectrum(self, **kwargs)
+        plotter = plot.plot_spectrum(self, **kwargs)
         return plotter.fill_between()
 
 # --------------- Operation from spectrum --------------- #
@@ -458,9 +468,9 @@ class spectrum:
             kwargs = {"cps": self.cps + other.cps}
 
         if self.is_calibrated_for_energy and other.is_calibrated_for_energy:
-            spectrum_object = spectrum(bin_edges_kev=self.energy_bin_edges, **kwargs)
+            spectrum_object = spectrum(energy_bin_edges=self.energy_bin_edges, **kwargs)
         else:
-            spectrum_object = spectrum(bin_edges_raw=self.channel_bin_edges, **kwargs)
+            spectrum_object = spectrum(channel_bin_edges=self.channel_bin_edges, **kwargs)
         return spectrum_object
 
     def __sub__(self, other):
@@ -492,9 +502,9 @@ class spectrum:
                 )
 
         if self.is_calibrated_for_energy and other.is_calibrated_for_energy:
-            spectrum_object = spectrum(bin_edges_kev=self.energy_bin_edges, **kwargs)
+            spectrum_object = spectrum(energy_bin_edges=self.energy_bin_edges, **kwargs)
         else:
-            spectrum_object = spectrum(bin_edges_raw=self.channel_bin_edges, **kwargs)
+            spectrum_object = spectrum(channel_bin_edges=self.channel_bin_edges, **kwargs)
         return spectrum_object
 
     def _add_sub_error_checking(self, other):
@@ -579,9 +589,9 @@ class spectrum:
             data_arg = {"cps": self.cps * multiplier}
 
         if self.is_calibrated_for_energy:
-            spect_obj = spectrum(bin_edges_kev=self.energy_bin_edges, **data_arg)
+            spect_obj = spectrum(energy_bin_edges=self.energy_bin_edges, **data_arg)
         else:
-            spect_obj = spectrum(bin_edges_raw=self.channel_bin_edges, **data_arg)
+            spect_obj = spectrum(channel_bin_edges=self.channel_bin_edges, **data_arg)
         return spect_obj
 
     def downsample(self, f, parsing_measuretime = None):
@@ -620,13 +630,14 @@ class spectrum:
             )
 
     def has_uniform_bins(self, use_kev=None, rtol=None):
+        # todo изменить данный метод
         """
         Test whether the Spectrum has uniform binning.
         """
 
         if rtol is None:
-            rtol = 100 * EPS
-        if rtol < EPS:
+            rtol = 100 * machineEpsilon()
+        if rtol < machineEpsilon():
             raise ValueError("Relative tolerance rtol cannot be < system EPS")
 
         if use_kev is None:
@@ -655,50 +666,44 @@ class spectrum:
             use_kev = self.is_calibrated_for_energy
 
         if use_kev and not self.is_calibrated_for_energy:
-            raise UncalibratedError(
+            raise uncalibrated_error(
                 "Cannot access energy bins with an uncalibrated Spectrum."
             )
 
         bin_edges, bin_widths, _ = self.get_bin_properties(use_kev)
-        x = np.asarray(x)
+        x = numpy.asarray(x)
 
-        if np.any(x < bin_edges[0]):
-            raise SpectrumError("requested x is < lowest bin edge")
-        if np.any(x >= bin_edges[-1]):
-            raise SpectrumError("requested x is >= highest bin edge")
+        if numpy.any(x < bin_edges[0]):
+            raise spectrum_error("requested x is < lowest bin edge")
+        if numpy.any(x >= bin_edges[-1]):
+            raise spectrum_error("requested x is >= highest bin edge")
 
-        return np.searchsorted(bin_edges, x, "right") - 1
+        return numpy.searchsorted(bin_edges, x, "right") - 1
 
     def get_bin_properties(self, use_kev=None):
-        """Convenience function to get bin properties: edges, widths, centers.
-        Args:
-          use_kev: if use_kev is False, use raw bins. If use_kev is True, use
-            kev bins, or raise UncalibratedError if uncalibrated. If None,
-            decide based on self.is_calibrated.
-        Returns:
-          bin edges, widths, centers
+        """
+        Convenience function to get bin properties: edges, widths, centers.
         """
 
         if use_kev is None:
-            use_kev = self.is_calibrated
+            use_kev = self.is_calibrated_for_energy
 
         if use_kev:
-            if not self.is_calibrated:
-                raise UncalibratedError(
+            if not self.is_calibrated_for_energy:
+                raise uncalibrated_error(
                     "Cannot access energy bins with an uncalibrated Spectrum."
                 )
-            return self.bin_edges_kev, self.bin_widths_kev, self.bin_centers_kev
+            return self.energy_bin_edges, self.energy_bin_edges, self.energy_bin_edges
         else:
-            return self.bin_edges_raw, self.bin_widths_raw, self.bin_centers_raw
+            return self.channel_bin_edges, self.channel_bin_edges, self.channel_bin_edges
 
     def apply_calibration(self, cal):
-        """Use a Calibration to generate bin edge energies for this spectrum.
-        Args:
-          cal: a Calibration object
+        """
+        Use a Calibration to generate bin edge energies for this spectrum.
         """
 
         try:
-            self.bin_edges_kev = cal.ch2kev(self.bin_edges_raw)
+            self.energy_bin_edges = cal.ch2kev(self.channel_bin_edges)
             warnings.warn(
                 "The use of bq.EnergyCalBase classes is deprecated "
                 "and will be removed in a future release; "
@@ -706,41 +711,33 @@ class spectrum:
                 DeprecationWarning,
             )
         except AttributeError:
-            self.bin_edges_kev = cal(self.bin_edges_raw)
+            self.energy_bin_edges = cal(self.channel_bin_edges)
         self.energy_cal = cal
 
     def calibrate_like(self, other):
-        """Apply another Spectrum object's calibration (bin edges vector).
+        """
+        Apply another Spectrum object's calibration (bin edges vector).
         Bin edges are copied, so the two spectra do not have the same object
         in memory.
-        Args:
-          other: spectrum to copy the calibration from
-        Raises:
-          UncalibratedError: if other Spectrum is not calibrated
         """
 
         if other.is_calibrated:
-            self.bin_edges_kev = other.bin_edges_kev.copy()
+            self.energy_bin_edges = other.energy_bin_edges.copy()
             self.energy_cal = other.energy_cal
         else:
-            raise UncalibratedError("Other spectrum is not calibrated")
+            raise uncalibrated_error("Other spectrum is not calibrated")
 
     def rm_calibration(self):
         """Remove the calibration (if it exists) from this spectrum."""
 
-        self.bin_edges_kev = None
+        self.energy_bin_edges = None
         self.energy_cal = None
 
     def combine_bins(self, f):
-        """Make a new Spectrum with counts combined into bigger bins.
+        """
+        Make a new Spectrum with counts combined into bigger bins.
         If f is not a factor of the number of bins, the counts from the first
         spectrum will be padded with zeros.
-        len(new.counts) == np.ceil(float(len(self.counts)) / f)
-        Args:
-          f: an int representing the number of bins to combine into one
-        Returns:
-          a Spectrum object with counts from this spectrum, but with
-            fewer bins
         """
 
         f = int(f)
@@ -750,83 +747,28 @@ class spectrum:
             key = "counts"
         data = getattr(self, key)
         if len(self) % f == 0:
-            padded_counts = np.copy(data)
+            padded_counts = numpy.zercopy(data)
         else:
             pad_len = f - len(self) % f
-            pad_counts = unumpy.uarray(np.zeros(pad_len), np.zeros(pad_len))
-            padded_counts = np.concatenate((data, pad_counts))
+            pad_counts = unumpy.uarray(numpy.zeros(pad_len), numpy.zeros(pad_len))
+            padded_counts = numpy.concatenate((data, pad_counts))
         padded_counts.resize(int(len(padded_counts) / f), f)
-        combined_counts = np.sum(padded_counts, axis=1)
-        if self.is_calibrated:
-            combined_bin_edges = self.bin_edges_kev[::f]
-            if combined_bin_edges[-1] != self.bin_edges_kev[-1]:
-                combined_bin_edges = np.append(
-                    combined_bin_edges, self.bin_edges_kev[-1]
+        combined_counts = numpy.sum(padded_counts, axis=1)
+        if self.is_calibrated_for_energy:
+            combined_bin_edges = self.energy_bin_edges[::f]
+            if combined_bin_edges[-1] != self.energy_bin_edges[-1]:
+                combined_bin_edges = numpy.append(
+                    combined_bin_edges, self.energy_bin_edges[-1]
                 )
         else:  # TODO: should be able to combine bins
             combined_bin_edges = None
 
         kwargs = {
             key: combined_counts,
-            "bin_edges_kev": combined_bin_edges,
-            "livetime": self.livetime,
+            "energy_bin_edges": combined_bin_edges,
+            "livetime": self.measuretime,
         }
-        obj = Spectrum(**kwargs)
-        return obj
+        object = spectrum(**kwargs)
+        return object
 
-    def rebin(
-            self, out_edges, method="interpolation", slopes=None, zero_pad_warnings=True
-    ):
-        """
-        Spectra rebinning via deterministic or stochastic methods.
-        Args:
-            out_edges (np.ndarray): an array of the output bin edges
-                [num_bins_out]
-            method (str): rebinning method
-                "interpolation"
-                    Deterministic interpolation
-                "listmode"
-                    Stochastic rebinning via conversion to listmode of energies
-            slopes (np.ndarray|None): (optional) an array of input bin slopes
-                for quadratic interpolation
-                (only applies for "interpolation" method)
-                [len(spectrum) + 1]
-        zero_pad_warnings (boolean): warn when edge overlap results in
-            appending empty bins
-        Raises:
-            SpectrumError: for bad input arguments
-        Returns:
-            A new Spectrum object with the rebinned data.
-        """
-        if self.bin_edges_kev is None:
-            raise SpectrumError(
-                "Cannot rebin spectrum without energy calibration"
-            )  # TODO: why not?
-        in_spec = self.counts_vals
-        if method.lower() == "listmode":
-            if (self._counts is None) and (self.livetime is not None):
-                warnings.warn(
-                    "Rebinning by listmode method without explicit counts "
-                    + "provided in Spectrum object",
-                    SpectrumWarning,
-                )
-        out_spec = rebin(
-            in_spec,
-            self.bin_edges_kev,
-            out_edges,
-            method=method,
-            slopes=slopes,
-            zero_pad_warnings=zero_pad_warnings,
-        )
-        return Spectrum(
-            counts=out_spec,
-            uncs=np.sqrt(out_spec),
-            bin_edges_kev=out_edges,
-            livetime=self.livetime,
-        )
-
-    def rebin_like(self, other, zero_pad_warnings=False, **kwargs):
-        return self.rebin(
-            other.bin_edges_kev, zero_pad_warnings=zero_pad_warnings, **kwargs
-        )
-        # TODO: raw here too?
+    # todo add rebin object
