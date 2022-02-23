@@ -7,6 +7,8 @@ import numpy
 from ATOMTEXSPECTR.encoding import UniDet
 import dateutil.parser
 from ATOMTEXSPECTR.read import errorparsers
+from scipy.optimize import curve_fit
+from ATOMTEXSPECTR import calibration
 
 def reading(
             filename,
@@ -67,7 +69,7 @@ def reading(
                 while j <= firstchannel + numberchannel:
                     item += 1
                     counts = numpy.append(counts, int(lines[item]))
-                    channels = numpy.append(channels, j)
+                    # channels = numpy.append(channels, j)
                     j += 1
 
             # elif lines[item] == '$ENER_FIT:':
@@ -86,6 +88,7 @@ def reading(
                 j = first_channel
                 while j < len_channel:
                     item += 1
+                    channels = numpy.append(channels, int(float(lines[item].split(" ")[0])))
                     energy = numpy.append(energy, float(lines[item].split(" ")[1]))
                     j += 1
 
@@ -165,11 +168,21 @@ def reading(
     data['temp'] = temp
     data['gain'] = gain
     data['energy'] = energy
+    data["channels"] = channels
     data['sigma'] = sigma
-    return data
+
+    def func(x, a, b):
+        return a + b * x
+    popt_exp, pcov_exp = curve_fit(func, channels, energy)
+    coefficients = [popt_exp[0], popt_exp[1]]
+    data["coefficients"] = coefficients
+    if len(coefficients) > 0 and not numpy.allclose(coefficients, 0):
+        cal = calibration.Calibration.from_polynomial(coefficients)
+    return data, cal
 
 
 if __name__ == '__main__':
-    path = r'/Users/ialexpovod/PycharmProjects/ATOMTEXSPECTR/tests/spectrum/BDKG11M_sample.spe'
+    path = r'D:\PycharmProject\ATOMTEXSPECTR\tests\spectrum\BDKG11M_sample.spe'
     file = reading(path)
-    print(file)
+    # ll = file["coefficients"]
+    # print(ll)

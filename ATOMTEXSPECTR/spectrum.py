@@ -12,7 +12,8 @@ from ATOMTEXSPECTR.tools import bin_centers_from_edges, parsing_datetime, parsin
 import ATOMTEXSPECTR
 from uncertainties import UFloat, unumpy
 from ATOMTEXSPECTR.warn import spectrum_error, spectrum_warning, uncalibrated_error
-
+from copy import deepcopy
+import io
 
 
 class spectrum:
@@ -42,6 +43,7 @@ class spectrum:
         self._cps = None
         self._channel_bin_edges = None
         self._energy_bin_edges = None
+        self.energy_cal = None
 
         if counts is not None:
             if len(counts) == 0:
@@ -338,15 +340,15 @@ class spectrum:
         """
         _, extension = os.path.splitext(filename)
         if extension.lower() == ".spe":
-            data_from_filename = ATOMTEXSPECTR.read.spe.reading(filename, deb = debugging)
+            data_from_filename, calibration = ATOMTEXSPECTR.read.spe.reading(filename, deb = debugging)
         elif extension.lower() == ".ats":
-            data_from_filename = ATOMTEXSPECTR.read.ats.reading(filename, deb = debugging)
+            data_from_filename, calibration = ATOMTEXSPECTR.read.ats.reading(filename, deb = debugging)
         else:
             raise NotImplementedError(f"Extension file-spectrum {extension} not reading.")
         output = cls(**data_from_filename)
         output.data["filename"] = filename
-        # if cal is not None:
-        #     output.apply_calibration(cal)
+        if calibration is not None:
+            output.apply_calibration(calibration)
         return output  # object spectrum
     # todo create write object file-spectrum
     @classmethod
@@ -439,6 +441,65 @@ class spectrum:
         plotter = plot.plot_spectrum(self, **kwargs)
         return plotter.fill_between()
 
+    def write(self, name):
+        """Write the Spectrum to an hdf5 file.
+        Parameters
+        ----------
+        name : str, h5py.File, h5py.Group
+            The filename or an open h5py File or Group.
+        """
+        # build datasets dict
+        dsets = {}
+        # handle counts versus CPS data
+        if self._cps is None:
+            assert self._counts is not None
+            # NOTE: integer character of counts has been destroyed
+            dsets["counts"] = self.values_counts
+            dsets["uncs"] = self.inaccuracy_counts
+        if self._counts is None:
+            assert self._cps is not None
+            dsets["cps"] = self.values_cps
+            dsets["uncs"] = self.inaccuracy_cps
+        # handle other array data
+        for key in ["bin_edges_raw", "bin_edges_kev"]:
+            val = getattr(self, key)
+            if val is not None:
+                dsets.update({key: val})
+
+        # build attributes dict
+        attrs = deepcopy(self.data)
+        # convert time attributes to strings
+        for key in ["start_time", "stop_time"]:
+            val = getattr(self, key)
+            if val is not None:
+                iso8601 = f"{val:%Y-%m-%dT%H:%M:%S.%f%z}"
+                attrs.update({key: iso8601})
+        for key in ["livetime", "realtime"]:
+            val = getattr(self, key)
+            if val is not None:
+                attrs.update({key: val})
+        # cannot specify all three of start, stop, and real time
+        if "start_time" in attrs and "stop_time" in attrs and "realtime" in attrs:
+            attrs.pop("realtime")
+
+        # write all spectrum data to file
+        io.write_h5(name, dsets, attrs)
+
+        # write calibration to file
+        if self.energy_cal is not None:
+            try:
+                with io.open_h5(name, "r+") as h5:
+                    group = io.create_group("energy_cal")
+                    self.energy_cal.write(group)
+            except AttributeError:
+                warnings.warn(
+                    "Unable to write energy calibration data to file. "
+                    "This may be caused by the use of "
+                    "bq.EnergyCalBase classes, which are deprecated"
+                    "and will be removed in a future release; "
+                    "use bq.Calibration instead",
+                    DeprecationWarning,
+                )
 # --------------- Operation from spectrum --------------- #
 
     def __add__(self, other):
@@ -712,6 +773,7 @@ class spectrum:
             )
         except AttributeError:
             self.energy_bin_edges = cal(self.channel_bin_edges)
+        # self.energy_bin_edges = cal(self.channel_bin_edges)
         self.energy_cal = cal
 
     def calibrate_like(self, other):

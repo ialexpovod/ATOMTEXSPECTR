@@ -20,7 +20,7 @@ if __name__ == '__main__':
     print(spectr_1)
     # print(spectr_1.attrs)
 
-    spectr_1.plot()
+    spectr_1.plot(xmode = 'kev')
     matplotlib.pyplot.show()
     # print(spectr_1.attrs)
     # e = r'D:\ATOMTEXSPECTR\tests\spectrum\BDKG11M_sample.spe'
