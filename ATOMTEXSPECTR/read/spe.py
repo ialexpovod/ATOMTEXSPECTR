@@ -22,8 +22,15 @@ def reading(
     Следует ли выводить отладочную (debugging) информацию. По умолчанию False.
     :return: Dictionary of data in spectrum
     """
-
-    print('Filename file-spectrum:' + filename)  # Return in console filename input file-spectrum
+    name = list()
+    i = -1
+    while filename[i] != '\\':
+        name.insert(i, filename[i])
+        i -= 1
+    len_name = len(name)
+    file_path = filename[0:-len_name]
+    print('Name: ', "".join(name))
+    print("Path: ", file_path)                                    # Return in console filename input file-spectrum
     namefile, extension = os.path.splitext(filename)
     # Check encoding file-spectrum
     enc_file = UniDet.encodingfile(filename)
@@ -174,15 +181,15 @@ def reading(
     def func(x, a, b):
         return a + b * x
     popt_exp, pcov_exp = curve_fit(func, channels, energy)
-    coefficients = [popt_exp[0], popt_exp[1]]
+    coefficients = [abs(popt_exp[0]), popt_exp[1]]
     data["coefficients"] = coefficients
     if len(coefficients) > 0 and not numpy.allclose(coefficients, 0):
         cal = calibration.Calibration.from_polynomial(coefficients)
+
     return data, cal
 
 
 if __name__ == '__main__':
-    path = r'D:\PycharmProject\ATOMTEXSPECTR\tests\spectrum\BDKG11M_sample.spe'
+    path = r'D:\PycharmProject\ATOMTEXSPECTR\tests\spectrum\137cs.spe'
     file = reading(path)
-    # ll = file["coefficients"]
-    # print(ll)
+    print(file[1])

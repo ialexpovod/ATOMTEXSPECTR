@@ -129,6 +129,7 @@ class spectrum:
         """
         Output description file-spectrum.
         """
+        import platform
         lines = ["ATOMTEXSPECTR"]
         ltups = []
         for index in ['sp_start_count', 'sp_stop_count', 'actualtime', 'measuretime', 'is_calibrated_for_energy']:
@@ -145,11 +146,23 @@ class spectrum:
                 # todo сделать ремарке по gross_cps
                 ltups.append(("gross_cps", None))
             if "filename" in self.data:
-                ltups.append(("filename", self.data["filename"]))
+                if platform.system() == "Windows":
+                    delim = "\\"
+                else:
+                    delim = "/"
+                i = -1; name_file = list()
+                while self.data["filename"][i] != delim:
+                    name_file.insert(i, self.data["filename"][i])
+                    i -= 1
+
+                ltups.append(("Name spectrum:", "".join(name_file)))
+                ltups.append(("Path spectrum:", self.data["filename"][0:-len(name_file)]))
             else:
                 ltups.append(("filename", None))
             for lt in ltups:
+
                 lines.append("    {:40} {}".format(f"{lt[0]}:", lt[1]))
+            # header = ["{:>{}}".format("", max([len(i) for i in lines[0]]))]
             return "\n".join(lines)
 
 # --------------- Property for counts --------------- #
@@ -766,14 +779,14 @@ class spectrum:
         try:
             self.energy_bin_edges = cal.ch2kev(self.channel_bin_edges)
             warnings.warn(
-                "The use of bq.EnergyCalBase classes is deprecated "
+                "The use of EnergyCalBase classes is deprecated "
                 "and will be removed in a future release; "
                 "use bq.Calibration instead",
                 DeprecationWarning,
             )
         except AttributeError:
             self.energy_bin_edges = cal(self.channel_bin_edges)
-        # self.energy_bin_edges = cal(self.channel_bin_edges)
+        self.energy_bin_edges = cal(self.channel_bin_edges)
         self.energy_cal = cal
 
     def calibrate_like(self, other):
@@ -783,7 +796,7 @@ class spectrum:
         in memory.
         """
 
-        if other.is_calibrated:
+        if other.is_calibrated_for_energy:
             self.energy_bin_edges = other.energy_bin_edges.copy()
             self.energy_cal = other.energy_cal
         else:

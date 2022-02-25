@@ -139,7 +139,7 @@ class plot_spectrum:  # PlotSpectrum(object) без родительского �
         return self._xmode
 
     @xmode.setter
-    def xmode(self, mode):
+    def xmode(self, mode: str):
         '''
         Метод определения данных по оси абсцисс. Также дефайн данных edges и xlabel.
         :param mode: energy (or kev, mev, e), channel (or channels, chn, chns, c, K)
