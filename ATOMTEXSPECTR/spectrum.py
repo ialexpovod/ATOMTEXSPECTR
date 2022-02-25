@@ -130,38 +130,45 @@ class spectrum:
         Output description file-spectrum.
         """
         import platform
-        lines = ["ATOMTEXSPECTR"]
+        lines = ["Spectrum:"]
         ltups = []
-        for index in ['sp_start_count', 'sp_stop_count', 'actualtime', 'measuretime', 'is_calibrated_for_energy']:
-            ltups.append((index, getattr(self, index)))
+        if "filename" in self.data:
+            if platform.system() == "Windows":
+                delim = "\\"
+            else:
+                delim = "/"
+            i = -1
+            name_file = list()
+            while self.data["filename"][i] != delim:
+                name_file.insert(i, self.data["filename"][i])
+                i -= 1
+
+            ltups.append(("Name spectrum:", "".join(name_file)))
+            ltups.append(("Path spectrum:", self.data["filename"][0:-len(name_file)]))
+        # for index in ['sp_start_count', 'sp_stop_count', 'actualtime', 'measuretime', 'is_calibrated_for_energy']:
+        #     ltups.append((index, getattr(self, index)))
+        ltups.append(("Calibrated", getattr(self, 'is_calibrated_for_energy')))
+        ltups.append(("Start time", getattr(self, 'sp_start_count')))
+        ltups.append(("Stop time", getattr(self, 'sp_stop_count')))
+        ltups.append(("Measurement", getattr(self, 'measuretime')))
         ltups.append(("Numbers of channels", len(self.bin_item)))
         if self._counts is None:
             # todo сделать ремарке по gross_counts
             ltups.append(("gross_counts", None))
         else:
-            ltups.append(("Sum counts:", self.counts.sum()))
+            ltups.append(("Sum counts", self.counts.sum()))
             try:
-                ltups.append(("Spectrum cps:", self.cps.sum()))
+                ltups.append(("Spectrum cps", self.cps.sum()))
             except spectrum_error:
                 # todo сделать ремарке по gross_cps
                 ltups.append(("gross_cps", None))
-            if "filename" in self.data:
-                if platform.system() == "Windows":
-                    delim = "\\"
-                else:
-                    delim = "/"
-                i = -1; name_file = list()
-                while self.data["filename"][i] != delim:
-                    name_file.insert(i, self.data["filename"][i])
-                    i -= 1
-
-                ltups.append(("Name spectrum:", "".join(name_file)))
-                ltups.append(("Path spectrum:", self.data["filename"][0:-len(name_file)]))
-            else:
-                ltups.append(("filename", None))
+            #
+            # else:
+            #     ltups.append(("filename", None))
             for lt in ltups:
 
                 lines.append("    {:40} {}".format(f"{lt[0]}:", lt[1]))
+            # todo сделать разделитель "|"
             # header = ["{:>{}}".format("", max([len(i) for i in lines[0]]))]
             return "\n".join(lines)
 

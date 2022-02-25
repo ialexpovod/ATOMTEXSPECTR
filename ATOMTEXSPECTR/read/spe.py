@@ -29,8 +29,9 @@ def reading(
         i -= 1
     len_name = len(name)
     file_path = filename[0:-len_name]
-    print('Name: ', "".join(name))
-    print("Path: ", file_path)                                    # Return in console filename input file-spectrum
+    if deb:
+        print('Name: ', "".join(name))
+        print("Path: ", file_path)                                    # Return in console filename input file-spectrum
     namefile, extension = os.path.splitext(filename)
     # Check encoding file-spectrum
     enc_file = UniDet.encodingfile(filename)
